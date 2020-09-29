@@ -1,6 +1,7 @@
 from utils import create_input_files
 
-base_path = 'drive/My Drive/NLP/a-PyTorch-Tutorial-to-Image-Captioning'
+base_path = '.'
+google_drive_path = 'drive/My Drive/NLP/a-PyTorch-Tutorial-to-Image-Captioning'
 
 if __name__ == '__main__':
     # Create input files (along with word map)
@@ -9,5 +10,5 @@ if __name__ == '__main__':
                        image_folder=base_path,
                        captions_per_image=5,
                        min_word_freq=5,
-                       output_folder=base_path + '/caption data',
+                       output_folder=google_drive_path + '/caption data',
                        max_len=50)
