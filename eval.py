@@ -7,6 +7,7 @@ from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 import torch.nn.functional as F
 from tqdm import tqdm
+from cutmix_resnet import *
 
 # Parameters
 data_folder = '/media/ssd/caption data'  # folder with data files saved by create_input_files.py
