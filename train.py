@@ -10,8 +10,11 @@ from datasets import *
 from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 
+# base_path = 'drive/My Drive/NLP/a-PyTorch-Tutorial-to-Image-Captioning'
+base_path = '.'
+
 # Data parameters
-data_folder = '/media/ssd/caption data'  # folder with data files saved by create_input_files.py
+data_folder = base_path + '/caption data'  # folder with data files saved by create_input_files.py
 data_name = 'coco_5_cap_per_img_5_min_word_freq'  # base name shared by data files
 
 # Model parameters
@@ -176,8 +179,8 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
 
         # Remove timesteps that we didn't decode at, or are pads
         # pack_padded_sequence is an easy trick to do this
-        scores, _ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
-        targets, _ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
+        scores, *_ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
+        targets, *_ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
 
         # Calculate loss
         loss = criterion(scores, targets)
