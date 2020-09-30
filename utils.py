@@ -134,6 +134,7 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
 
                     enc_captions.append(enc_c)
                     caplens.append(c_len)
+                os.remove(impaths[i])
 
             # Sanity check
             assert images.shape[0] * captions_per_image == len(enc_captions) == len(caplens)
@@ -144,6 +145,7 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
 
             with open(os.path.join(output_folder, split + '_CAPLENS_' + base_filename + '.json'), 'w') as j:
                 json.dump(caplens, j)
+    
 
 
 def init_embedding(embeddings):

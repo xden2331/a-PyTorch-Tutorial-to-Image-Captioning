@@ -81,7 +81,7 @@ class Bottleneck(nn.Module):
         return out
 
 class ResNet(nn.Module):
-    def __init__(self, dataset, depth, num_classes, bottleneck=False):
+    def __init__(self, dataset, depth, num_classes, bottleneck=False, encoded_image_size=14):
         super(ResNet, self).__init__()        
         self.dataset = dataset
         if self.dataset.startswith('cifar'):
@@ -119,6 +119,9 @@ class ResNet(nn.Module):
             self.layer4 = self._make_layer(blocks[depth], 512, layers[depth][3], stride=2)
             self.avgpool = nn.AvgPool2d(7) 
             self.fc = nn.Linear(512 * blocks[depth].expansion, num_classes)
+
+        self.adaptive_pool = nn.AdaptiveAvgPool2d((encoded_image_size, encoded_image_size))
+
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -170,8 +173,10 @@ class ResNet(nn.Module):
             x = self.layer3(x)
             x = self.layer4(x)
 
-            x = self.avgpool(x)
-            x = x.view(x.size(0), -1)
-            x = self.fc(x)
+            # x = self.avgpool(x)
+            # x = x.view(x.size(0), -1)
+            # x = self.fc(x)
+            x = self.adaptive_pool(x)  # (batch_size, 2048, encoded_image_size, encoded_image_size)
+            x = x.permute(0, 2, 3, 1)  # (batch_size, encoded_image_size, encoded_image_size, 2048)
     
         return x

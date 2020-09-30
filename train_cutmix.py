@@ -9,10 +9,14 @@ from models import Encoder, DecoderWithAttention
 from datasets import *
 from utils import *
 from nltk.translate.bleu_score import corpus_bleu
-from cutmix_resnet import *
+from resnet import ResNet
+from torch.nn import Identity
+
+# base_path = 'drive/My Drive/NLP/a-PyTorch-Tutorial-to-Image-Captioning'
+base_path = '.'
 
 # Data parameters
-data_folder = '/media/ssd/caption data'  # folder with data files saved by create_input_files.py
+data_folder = base_path + '/caption data'  # folder with data files saved by create_input_files.py
 data_name = 'coco_5_cap_per_img_5_min_word_freq'  # base name shared by data files
 
 # Model parameters
@@ -25,7 +29,7 @@ cudnn.benchmark = True  # set to true only if inputs to model are fixed size; ot
 
 # Training parameters
 start_epoch = 0
-epochs = 120  # number of epochs to train for (if early stopping is not triggered)
+epochs = 10  # number of epochs to train for (if early stopping is not triggered)
 epochs_since_improvement = 0  # keeps track of number of epochs since there's been an improvement in validation BLEU
 batch_size = 32
 workers = 1  # for data-loading; right now, only 1 works with h5py
@@ -37,7 +41,16 @@ best_bleu4 = 0.  # BLEU-4 score right now
 print_freq = 100  # print training/validation stats every __ batches
 fine_tune_encoder = False  # fine-tune encoder?
 checkpoint = None  # path to checkpoint, None if none
+pretrained_path = "./drive/My Drive/NLP/CutMix/resnet-101/model_best.pth.tar"
 
+def create_cutmix_net():
+    model = ResNet('imagenet', 101, 1000)
+    model = torch.nn.DataParallel(model)
+    checkpoint = torch.load(pretrained_path)
+    model.load_state_dict(checkpoint['state_dict'])
+    model.module.avgpool = Identity()
+    model.module.fc = Identity()
+    return model
 
 def main():
     """
@@ -60,8 +73,8 @@ def main():
                                        dropout=dropout)
         decoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, decoder.parameters()),
                                              lr=decoder_lr)
-        encoder = Encoder()
-        encoder.fine_tune(fine_tune_encoder)
+        encoder = create_cutmix_net()
+        # encoder.fine_tune(fine_tune_encoder)
         encoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, encoder.parameters()),
                                              lr=encoder_lr) if fine_tune_encoder else None
 
@@ -114,7 +127,8 @@ def main():
               criterion=criterion,
               encoder_optimizer=encoder_optimizer,
               decoder_optimizer=decoder_optimizer,
-              epoch=epoch)
+              epoch=epoch,
+              val_loader = val_loader)
 
         # One epoch's validation
         recent_bleu4 = validate(val_loader=val_loader,
@@ -136,7 +150,7 @@ def main():
                         decoder_optimizer, recent_bleu4, is_best)
 
 
-def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_optimizer, epoch):
+def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_optimizer, epoch, val_loader):
     """
     Performs one epoch's training.
 
@@ -158,6 +172,7 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
     top5accs = AverageMeter()  # top5 accuracy
 
     start = time.time()
+    val_freq = int(len(train_loader) / 5)
 
     # Batches
     for i, (imgs, caps, caplens) in enumerate(train_loader):
@@ -177,8 +192,8 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
 
         # Remove timesteps that we didn't decode at, or are pads
         # pack_padded_sequence is an easy trick to do this
-        scores, _ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
-        targets, _ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
+        scores, *_ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
+        targets, *_ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
 
         # Calculate loss
         loss = criterion(scores, targets)
@@ -213,14 +228,24 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
 
         # Print status
         if i % print_freq == 0:
-            print('Epoch: [{0}][{1}/{2}]\t'
-                  'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Data Load Time {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Top-5 Accuracy {top5.val:.3f} ({top5.avg:.3f})'.format(epoch, i, len(train_loader),
+            epoch_info = ('Epoch: [{0}][{1}/{2}]\t' +
+                  'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t' +
+                  'Data Load Time {data_time.val:.3f} ({data_time.avg:.3f})\t' +
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t' +
+                  'Top-5 Accuracy {top5.val:.3f} ({top5.avg:.3f})\t \n').format(epoch, i, len(train_loader),
                                                                           batch_time=batch_time,
                                                                           data_time=data_time, loss=losses,
-                                                                          top5=top5accs))
+                                                                          top5=top5accs)
+            print(epoch_info)
+            with open('cutmix_log.txt', 'a') as logs:
+                logs.write(epoch_info)
+
+        if i % val_freq == 0:
+            bleu4 = validate(val_loader=val_loader, encoder=encoder, decoder=decoder,
+            criterion=criterion)
+            bleu4_info = ('Epoch: [{0}][{1}/{2}]\t' + 'BLEU4: {3}\n').format(epoch, i, len(train_loader), bleu4)
+            with open('cutmix_bleu4_log.txt', 'a') as bleu4_logs:
+                bleu4_logs.write(bleu4_info)
 
 
 def validate(val_loader, encoder, decoder, criterion):
@@ -268,8 +293,8 @@ def validate(val_loader, encoder, decoder, criterion):
             # Remove timesteps that we didn't decode at, or are pads
             # pack_padded_sequence is an easy trick to do this
             scores_copy = scores.clone()
-            scores, _ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
-            targets, _ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
+            scores, *_ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
+            targets, *_ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
 
             # Calculate loss
             loss = criterion(scores, targets)
