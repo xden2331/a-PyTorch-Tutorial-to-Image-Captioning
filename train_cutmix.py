@@ -40,7 +40,7 @@ alpha_c = 1.  # regularization parameter for 'doubly stochastic attention', as i
 best_bleu4 = 0.  # BLEU-4 score right now
 print_freq = 100  # print training/validation stats every __ batches
 fine_tune_encoder = False  # fine-tune encoder?
-checkpoint = None  # path to checkpoint, None if none
+checkpoint = '/content/drive/My Drive/NLP/NIC-CutMix/BEST_checkpoint_coco_5_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none
 pretrained_path = "./drive/My Drive/NLP/CutMix/resnet-101/model_best.pth.tar"
 
 def create_cutmix_net():
