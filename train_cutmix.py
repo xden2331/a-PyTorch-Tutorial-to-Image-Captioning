@@ -237,14 +237,14 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
                                                                           data_time=data_time, loss=losses,
                                                                           top5=top5accs)
             print(epoch_info)
-            with open('cutmix_log.txt', 'a') as logs:
+            with open('/content/drive/My Drive/NLP/NIC-CutMix/cutmix_log.txt', 'a') as logs:
                 logs.write(epoch_info)
 
         if i % val_freq == 0:
             bleu4 = validate(val_loader=val_loader, encoder=encoder, decoder=decoder,
             criterion=criterion)
             bleu4_info = ('Epoch: [{0}][{1}/{2}]\t' + 'BLEU4: {3}\n').format(epoch, i, len(train_loader), bleu4)
-            with open('cutmix_bleu4_log.txt', 'a') as bleu4_logs:
+            with open('/content/drive/My Drive/NLP/NIC-CutMix/cutmix_bleu4_log.txt', 'a') as bleu4_logs:
                 bleu4_logs.write(bleu4_info)
 
 
