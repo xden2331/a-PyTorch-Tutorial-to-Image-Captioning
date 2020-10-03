@@ -40,7 +40,7 @@ alpha_c = 1.  # regularization parameter for 'doubly stochastic attention', as i
 best_bleu4 = 0.  # BLEU-4 score right now
 print_freq = 100  # print training/validation stats every __ batches
 fine_tune_encoder = False  # fine-tune encoder?
-checkpoint = '/content/drive/My Drive/NLP/NIC-CutMix/BEST_checkpoint_coco_5_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none
+checkpoint = '/content/drive/My Drive/NLP/NIC-CutMix/checkpoint_coco_5_cap_per_img_5_min_word_freq.pth.tar'  # path to checkpoint, None if none
 pretrained_path = "./drive/My Drive/NLP/CutMix/resnet-101/model_best.pth.tar"
 
 def create_cutmix_net():
@@ -246,7 +246,8 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
             bleu4_info = ('Epoch: [{0}][{1}/{2}]\t' + 'BLEU4: {3}\n').format(epoch, i, len(train_loader), bleu4)
             with open('/content/drive/My Drive/NLP/NIC-CutMix/cutmix_bleu4_log.txt', 'a') as bleu4_logs:
                 bleu4_logs.write(bleu4_info)
-
+            save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer,
+                        decoder_optimizer, bleu4_info, False)
 
 def validate(val_loader, encoder, decoder, criterion):
     """
