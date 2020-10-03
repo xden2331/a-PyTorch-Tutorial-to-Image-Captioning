@@ -116,7 +116,7 @@ def main():
               criterion=criterion,
               encoder_optimizer=encoder_optimizer,
               decoder_optimizer=decoder_optimizer,
-              epoch=epoch)
+              epoch=epoch, val_loader)
 
         # One epoch's validation
         recent_bleu4 = validate(val_loader=val_loader,
@@ -138,7 +138,7 @@ def main():
                         decoder_optimizer, recent_bleu4, is_best)
 
 
-def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_optimizer, epoch):
+def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_optimizer, epoch, val_loader):
     """
     Performs one epoch's training.
 
@@ -160,6 +160,8 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
     top5accs = AverageMeter()  # top5 accuracy
 
     start = time.time()
+    val_freq = int(len(train_loader) / 5)
+
 
     # Batches
     for i, (imgs, caps, caplens) in enumerate(train_loader):
@@ -215,14 +217,25 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
 
         # Print status
         if i % print_freq == 0:
-            print('Epoch: [{0}][{1}/{2}]\t'
-                  'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Data Load Time {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Top-5 Accuracy {top5.val:.3f} ({top5.avg:.3f})'.format(epoch, i, len(train_loader),
+            epoch_info = ('Epoch: [{0}][{1}/{2}]\t' +
+                  'Batch Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t' +
+                  'Data Load Time {data_time.val:.3f} ({data_time.avg:.3f})\t' +
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t' +
+                  'Top-5 Accuracy {top5.val:.3f} ({top5.avg:.3f})\t \n').format(epoch, i, len(train_loader),
                                                                           batch_time=batch_time,
                                                                           data_time=data_time, loss=losses,
-                                                                          top5=top5accs))
+                                                                          top5=top5accs)
+            print(epoch_info)
+            with open('/content/drive/My Drive/NLP/NIC-CutMix/NIC_log.txt', 'a') as logs:
+                logs.write(epoch_info)
+
+        if i % val_freq == 0:
+            bleu4 = validate(val_loader=val_loader, encoder=encoder, decoder=decoder, criterion=criterion)
+            bleu4_info = ('Epoch: [{0}][{1}/{2}]\t' + 'BLEU4: {3}\n').format(epoch, i, len(train_loader), bleu4)
+            with open('/content/drive/My Drive/NLP/NIC-CutMix/NIC_bleu4_log.txt', 'a') as bleu4_logs:
+                bleu4_logs.write(bleu4_info)
+            save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer,
+                        decoder_optimizer, bleu4_info, False)
 
 
 def validate(val_loader, encoder, decoder, criterion):
@@ -270,8 +283,8 @@ def validate(val_loader, encoder, decoder, criterion):
             # Remove timesteps that we didn't decode at, or are pads
             # pack_padded_sequence is an easy trick to do this
             scores_copy = scores.clone()
-            scores, _ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
-            targets, _ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
+            scores, *_ = pack_padded_sequence(scores, decode_lengths, batch_first=True)
+            targets, *_ = pack_padded_sequence(targets, decode_lengths, batch_first=True)
 
             # Calculate loss
             loss = criterion(scores, targets)
